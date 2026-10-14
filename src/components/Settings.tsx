@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { BusinessProfile, DebtRecord, StockMovement, Product } from '../types';
 import { getProfile, saveProfile, getDebts, saveDebts, getStockMovements, getTransactions, getProducts, generateId, formatCurrency, formatDate, formatDateTime, exportToCSV, downloadCSV } from '../store';
-import { Download, Trash2, Database, Info, Users, Package, AlertTriangle, Check, Plus, X } from 'lucide-react';
+import { Download, Trash2, Database, Info, Users, Package, AlertTriangle, Check, Plus, X, Palette } from 'lucide-react';
+import TemplateEditor from './TemplateEditor';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<BusinessProfile>(getProfile());
@@ -10,7 +11,7 @@ export default function SettingsPage() {
   const [showDebtForm, setShowDebtForm] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'debts' | 'stock' | 'data'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'debts' | 'stock' | 'templates' | 'data'>('profile');
   const [debtForm, setDebtForm] = useState({ type: 'receivable' as 'receivable' | 'payable', customerName: '', description: '', amount: '', dueDate: '' });
 
   const transactions = getTransactions();
@@ -65,6 +66,7 @@ export default function SettingsPage() {
     { id: 'profile' as const, label: '🏪 Profil Toko' },
     { id: 'debts' as const, label: '💳 Hutang/Piutang' },
     { id: 'stock' as const, label: '📦 Mutasi Stok' },
+    { id: 'templates' as const, label: '🎨 Template' },
     { id: 'data' as const, label: '💾 Data' },
   ];
 
@@ -252,6 +254,9 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Templates Tab */}
+      {activeTab === 'templates' && <TemplateEditor />}
 
       {/* Data Tab */}
       {activeTab === 'data' && (

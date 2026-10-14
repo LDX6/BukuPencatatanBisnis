@@ -1,4 +1,4 @@
-import { Product, Transaction, Customer, DebtRecord, Supplier, StockMovement, BusinessProfile, Notification } from './types';
+import { Product, Transaction, Customer, DebtRecord, Supplier, StockMovement, BusinessProfile, Notification, TemplateSettings } from './types';
 
 const KEYS = {
   products: 'bukukas_products',
@@ -10,6 +10,7 @@ const KEYS = {
   profile: 'bukukas_profile',
   notifications: 'bukukas_notifications',
   invoiceCounter: 'bukukas_invoice_counter',
+  templateSettings: 'bukukas_template_settings',
 };
 
 function get<T>(key: string): T[] {
@@ -69,6 +70,136 @@ export function getProfile(): BusinessProfile {
 }
 export function saveProfile(profile: BusinessProfile): void { setOne(KEYS.profile, profile); }
 
+// Template Settings
+export function getTemplateSettings(): TemplateSettings {
+  const saved = getOne<TemplateSettings>(KEYS.templateSettings);
+  if (saved) return saved;
+  
+  // Default template settings
+  return {
+    receipt: {
+      header: '',
+      footer: '',
+      showLogo: true,
+      showBusinessName: true,
+      showAddress: true,
+      showPhone: true,
+      showDate: true,
+      showInvoiceNumber: true,
+      showCashierName: false,
+      showCustomerName: true,
+      showItemSKU: false,
+      showItemPrice: true,
+      showSubtotal: true,
+      showDiscount: true,
+      showTax: true,
+      showPaymentMethod: true,
+      showChange: true,
+      showItemCount: true,
+      showBarcode: false,
+      paperSize: '80mm',
+      fontSize: 'medium',
+      alignment: 'center',
+      separator: 'dash',
+      thankYouMessage: 'Terima kasih atas kunjungan Anda!',
+    },
+    invoice: {
+      title: 'INVOICE',
+      header: '',
+      footer: 'Pembayaran diharapkan dalam 30 hari',
+      showLogo: true,
+      showBusinessInfo: true,
+      showCustomerInfo: true,
+      showPaymentTerms: true,
+      showDueDate: true,
+      showNotes: true,
+      showSubtotal: true,
+      showTax: true,
+      showDiscount: true,
+      showShippingCost: false,
+      showGrandTotal: true,
+      showSignature: false,
+      signatureTitle: 'Hormat kami',
+      paymentTerms: 'Net 30',
+      notes: '',
+      theme: 'professional',
+      primaryColor: '#6366f1',
+      secondaryColor: '#8b5cf6',
+    },
+    report: {
+      title: 'LAPORAN PENJUALAN',
+      header: '',
+      footer: '',
+      showLogo: true,
+      showBusinessInfo: true,
+      showPeriod: true,
+      showSummary: true,
+      showDailyBreakdown: true,
+      showProductBreakdown: true,
+      showPaymentBreakdown: true,
+      showProfitLoss: true,
+      showCharts: true,
+      showRecommendations: true,
+      dateFormat: 'dd/MM/yyyy',
+      currencyFormat: 'symbol',
+      includeGraphs: true,
+      includeTables: true,
+      theme: 'professional',
+      primaryColor: '#6366f1',
+    },
+    productLabel: {
+      showName: true,
+      showPrice: true,
+      showSKU: true,
+      showBarcode: true,
+      showCategory: false,
+      showWeight: false,
+      showExpiryDate: false,
+      showBusinessName: false,
+      labelSize: 'medium',
+      labelShape: 'rounded',
+      showBorder: true,
+      borderColor: '#e5e7eb',
+      backgroundColor: '#ffffff',
+      textColor: '#1f2937',
+      fontSize: 'medium',
+    },
+    debtNote: {
+      title: 'SURAT PERJANJIAN HUTANG',
+      header: '',
+      footer: '',
+      showLogo: true,
+      showBusinessInfo: true,
+      showDebtorInfo: true,
+      showAmount: true,
+      showDueDate: true,
+      showPaymentSchedule: true,
+      showSignature: true,
+      showWitness: false,
+      signatureTitle: 'Debitur',
+      witnessTitle: 'Saksi',
+      terms: 'Saya yang bertanda tangan di bawah ini menyatakan berhutang dan akan melunasi sesuai jadwal yang disepakati.',
+      theme: 'formal',
+    },
+    export: {
+      format: 'csv',
+      includeHeader: true,
+      includeFooter: true,
+      includeSummary: true,
+      includeCharts: false,
+      dateFormat: 'dd/MM/yyyy',
+      currencyFormat: 'symbol',
+      separator: ',',
+      encoding: 'UTF-8',
+      includeBOM: true,
+    },
+  };
+}
+
+export function saveTemplateSettings(settings: TemplateSettings): void {
+  setOne(KEYS.templateSettings, settings);
+}
+
 // Notifications
 export function getNotifications(): Notification[] { return get<Notification>(KEYS.notifications); }
 export function saveNotifications(notifications: Notification[]): void { set(KEYS.notifications, notifications); }
@@ -115,30 +246,52 @@ export function formatDateTime(dateStr: string): string {
 }
 
 export function exportToCSV(transactions: Transaction[], products: Product[]): string {
-  let csv = 'LAPORAN PENJUALAN - BukuKas AI\n';
-  csv += `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}\n\n`;
+  const template = getTemplateSettings();
+  const profile = getProfile();
+  const exportSettings = template.export;
   
+  let csv = '';
+  
+  // Header
+  if (exportSettings.includeHeader) {
+    csv += `${template.report.title}\n`;
+    csv += `${profile.name}\n`;
+    if (profile.address) csv += `${profile.address}\n`;
+    if (profile.phone) csv += `Telp: ${profile.phone}\n`;
+    csv += `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}\n`;
+    csv += '\n';
+  }
+  
+  // Transactions
   csv += '=== DATA TRANSAKSI ===\n';
-  csv += 'No Invoice,Tanggal,Customer,Subtotal,Diskon,Pajak,Total,Pembayaran,Status,Catatan\n';
+  csv += `No Invoice${exportSettings.separator}Tanggal${exportSettings.separator}Customer${exportSettings.separator}Subtotal${exportSettings.separator}Diskon${exportSettings.separator}Pajak${exportSettings.separator}Total${exportSettings.separator}Pembayaran${exportSettings.separator}Status${exportSettings.separator}Catatan\n`;
   transactions.forEach(t => {
-    csv += `"${t.invoiceNumber}","${t.date}","${t.customerName||'-'}",${t.subtotal},${t.discount},${t.tax},${t.total},"${t.paymentMethod}","${t.status}","${t.note}"\n`;
+    csv += `"${t.invoiceNumber}"${exportSettings.separator}"${t.date}"${exportSettings.separator}"${t.customerName||'-'}"${exportSettings.separator}${t.subtotal}${exportSettings.separator}${t.discount}${exportSettings.separator}${t.tax}${exportSettings.separator}${t.total}${exportSettings.separator}"${t.paymentMethod}"${exportSettings.separator}"${t.status}"${exportSettings.separator}"${t.note}"\n`;
   });
   
   csv += '\n=== DATA PRODUK ===\n';
-  csv += 'SKU,Nama,Harga Jual,Harga Modal,Stok,Min Stok,Kategori,Supplier\n';
+  csv += `SKU${exportSettings.separator}Nama${exportSettings.separator}Harga Jual${exportSettings.separator}Harga Modal${exportSettings.separator}Stok${exportSettings.separator}Min Stok${exportSettings.separator}Kategori${exportSettings.separator}Supplier\n`;
   products.forEach(p => {
-    csv += `"${p.sku}","${p.name}",${p.price},${p.costPrice},${p.stock},${p.minStock},"${p.category}","${p.supplier}"\n`;
+    csv += `"${p.sku}"${exportSettings.separator}"${p.name}"${exportSettings.separator}${p.price}${exportSettings.separator}${p.costPrice}${exportSettings.separator}${p.stock}${exportSettings.separator}${p.minStock}${exportSettings.separator}"${p.category}"${exportSettings.separator}"${p.supplier}"\n`;
   });
   
-  const totalRevenue = transactions.filter(t => t.status === 'completed').reduce((s, t) => s + t.total, 0);
-  const totalProfit = transactions.filter(t => t.status === 'completed').reduce((s, t) => {
-    return s + t.items.reduce((is, item) => is + (item.subtotal - (item.costPrice * item.quantity)), 0);
-  }, 0);
+  // Summary
+  if (exportSettings.includeSummary) {
+    const totalRevenue = transactions.filter(t => t.status === 'completed').reduce((s, t) => s + t.total, 0);
+    const totalProfit = transactions.filter(t => t.status === 'completed').reduce((s, t) => {
+      return s + t.items.reduce((is, item) => is + (item.subtotal - (item.costPrice * item.quantity)), 0);
+    }, 0);
+    
+    csv += `\n=== RINGKASAN ===\n`;
+    csv += `Total Pendapatan${exportSettings.separator}${totalRevenue}\n`;
+    csv += `Total Laba Kotor${exportSettings.separator}${totalProfit}\n`;
+    csv += `Total Transaksi${exportSettings.separator}${transactions.length}\n`;
+  }
   
-  csv += `\n=== RINGKASAN ===\n`;
-  csv += `Total Pendapatan,${totalRevenue}\n`;
-  csv += `Total Laba Kotor,${totalProfit}\n`;
-  csv += `Total Transaksi,${transactions.length}\n`;
+  // Footer
+  if (exportSettings.includeFooter && template.report.footer) {
+    csv += `\n${template.report.footer}\n`;
+  }
   
   return csv;
 }

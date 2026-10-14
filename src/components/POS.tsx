@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Transaction, TransactionItem, Product, Customer, ScannedProduct } from '../types';
-import { getTransactions, saveTransactions, getProducts, saveProducts, getCustomers, saveCustomers, generateId, formatCurrency, getNextInvoiceNumber, getStockMovements, saveStockMovements } from '../store';
+import { getTransactions, saveTransactions, getProducts, saveProducts, getCustomers, saveCustomers, generateId, formatCurrency, getNextInvoiceNumber, getStockMovements, saveStockMovements, getTemplateSettings, getProfile } from '../store';
 import { analyzeImage, uploadImage } from '../utils/imageScanner';
 import { Camera, Search, Plus, Minus, Trash2, ShoppingCart, ScanLine, X, Check, CreditCard, Banknote, QrCode, Smartphone } from 'lucide-react';
 
@@ -353,46 +353,60 @@ export default function POS() {
       )}
 
       {/* Receipt Modal */}
-      {showReceipt && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <div className="text-center mb-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Check className="w-8 h-8 text-green-600" />
+      {showReceipt && (() => {
+        const template = getTemplateSettings().receipt;
+        const profile = getProfile();
+        const separator = template.separator === 'dash' ? '------------------------' : template.separator === 'line' ? '────────────────────────' : '';
+        
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Check className="w-8 h-8 text-green-600" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-800">Transaksi Berhasil!</h2>
               </div>
-              <h2 className="text-lg font-bold text-gray-800">Transaksi Berhasil!</h2>
-              <p className="text-sm text-gray-500">{showReceipt.invoiceNumber}</p>
-            </div>
-            <div className="border-t border-dashed pt-4 space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">Tanggal</span><span>{showReceipt.date}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Pelanggan</span><span>{showReceipt.customerName}</span></div>
-              {showReceipt.items.map((item, i) => (
-                <div key={i} className="flex justify-between">
-                  <span>{item.productName} ×{item.quantity}</span>
-                  <span>{formatCurrency(item.subtotal)}</span>
-                </div>
-              ))}
-              <div className="border-t pt-2 mt-2">
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total</span><span className="text-indigo-600">{formatCurrency(showReceipt.total)}</span>
-                </div>
-                <div className="flex justify-between text-gray-500 text-xs mt-1">
-                  <span>{showReceipt.paymentMethod}</span>
-                  <span>Bayar: {formatCurrency(showReceipt.paidAmount)}</span>
-                </div>
-                {showReceipt.changeAmount > 0 && (
-                  <div className="flex justify-between text-gray-500 text-xs">
-                    <span>Kembalian</span><span>{formatCurrency(showReceipt.changeAmount)}</span>
+              
+              {/* Receipt Preview */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 font-mono text-xs space-y-1" style={{ textAlign: template.alignment as any }}>
+                {template.showLogo && profile.logo && <img src={profile.logo} alt="" className="w-12 h-12 mx-auto object-contain" />}
+                {template.showBusinessName && <div className="font-bold">{profile.name}</div>}
+                {template.showAddress && profile.address && <div className="text-[10px]">{profile.address}</div>}
+                {template.showPhone && profile.phone && <div className="text-[10px]">Telp: {profile.phone}</div>}
+                {template.header && <div className="mt-1">{template.header}</div>}
+                {separator && <div>{separator}</div>}
+                {template.showInvoiceNumber && <div>No: {showReceipt.invoiceNumber}</div>}
+                {template.showDate && <div>Tgl: {showReceipt.date}</div>}
+                {template.showCustomerName && <div>Pelanggan: {showReceipt.customerName}</div>}
+                {separator && <div>{separator}</div>}
+                {showReceipt.items.map((item, i) => (
+                  <div key={i}>
+                    <div>{item.productName} x{item.quantity}</div>
+                    {template.showItemPrice && <div className="text-right">{formatCurrency(item.subtotal)}</div>}
                   </div>
-                )}
+                ))}
+                {separator && <div>{separator}</div>}
+                {template.showSubtotal && <div className="flex justify-between"><span>Subtotal:</span><span>{formatCurrency(showReceipt.subtotal)}</span></div>}
+                {template.showDiscount && showReceipt.discount > 0 && <div className="flex justify-between"><span>Diskon:</span><span>-{formatCurrency(showReceipt.discount)}</span></div>}
+                {template.showTax && showReceipt.tax > 0 && <div className="flex justify-between"><span>Pajak:</span><span>{formatCurrency(showReceipt.tax)}</span></div>}
+                <div className="flex justify-between font-bold">
+                  <span>TOTAL:</span><span>{formatCurrency(showReceipt.total)}</span>
+                </div>
+                {template.showPaymentMethod && <div>{showReceipt.paymentMethod}</div>}
+                {template.showChange && showReceipt.changeAmount > 0 && <div>Kembali: {formatCurrency(showReceipt.changeAmount)}</div>}
+                {separator && <div>{separator}</div>}
+                <div className="mt-2">{template.thankYouMessage}</div>
+                {template.footer && <div className="mt-1">{template.footer}</div>}
               </div>
+
+              <button onClick={() => setShowReceipt(null)} className="w-full mt-4 bg-indigo-600 text-white py-2.5 rounded-xl hover:bg-indigo-700 transition font-medium">
+                Selesai
+              </button>
             </div>
-            <button onClick={() => setShowReceipt(null)} className="w-full mt-4 bg-indigo-600 text-white py-2.5 rounded-xl hover:bg-indigo-700 transition font-medium">
-              Selesai
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* History Panel */}
       {showHistory && (
